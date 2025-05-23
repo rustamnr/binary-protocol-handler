@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"time"
 )
 
 const (
@@ -45,16 +44,17 @@ func main() {
 			break
 		}
 
-		data := make([]byte, header.DataLen)
-		if _, err := io.ReadFull(conn, data); err != nil {
+		buf := make([]byte, header.DataLen)
+		if _, err := io.ReadFull(conn, buf); err != nil {
 			log.Printf("Ошибка чтения данных: %v", err)
 			break
 		}
+		dataReader := bytes.NewReader(buf)
 
 		task := MessageTask{
 			Conn:   conn,
 			Header: *header,
-			Data:   data,
+			Data:   dataReader,
 		}
 		taskChan <- task
 	}
@@ -65,7 +65,7 @@ func main() {
 type MessageTask struct {
 	Conn   net.Conn
 	Header Header
-	Data   []byte
+	Data   io.Reader
 }
 
 func worker(tasks <-chan MessageTask, processor MessageProcessor) {
@@ -142,22 +142,30 @@ func WriteHeader(w io.Writer, h Header) error {
 // ---------------- Обработчик ----------------
 
 type MessageProcessor interface {
-	ProcessMessage(param uint32, data []byte) uint16
+	ProcessMessage(param uint32, data io.Reader) uint16
 }
 
 type DummyProcessor struct{}
 
-func (p *DummyProcessor) ProcessMessage(param uint32, data []byte) uint16 {
-	// Эмулируем обработку разной длины
-	if param%2 == 0 {
-		time.Sleep(2 * time.Second)
-	} else {
-		time.Sleep(500 * time.Millisecond)
+func (p *DummyProcessor) ProcessMessage(param uint32, data io.Reader) uint16 {
+	var (
+		buf = make([]byte, 4096)
+		sum uint16
+	)
+
+	for {
+		n, err := data.Read(buf)
+		for i := 0; i < n; i++ {
+			sum += uint16(buf[i])
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Printf("Ошибка чтения данных: %v", err)
+			break
+		}
 	}
 
-	var sum uint16
-	for _, b := range data {
-		sum += uint16(b)
-	}
 	return sum
 }
