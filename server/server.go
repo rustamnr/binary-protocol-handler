@@ -29,25 +29,34 @@ func main() {
 func handleClient(conn net.Conn) {
 	defer conn.Close()
 
-	data := []byte("hello world")
-
-	msg := makeMessage(1, 42, 777, data)
-	_, err := conn.Write(msg)
-	if err != nil {
-		fmt.Println("Ошибка отправки:", err)
-		return
+	messages := []struct {
+		id    uint32
+		param uint32
+		data  []byte
+	}{
+		{42, 1, []byte("fast1")},
+		{43, 2, []byte("slow1")},
+		{44, 3, []byte("fast2")},
+		{45, 4, []byte("slow2")},
 	}
-	fmt.Println("Сообщение отправлено клиенту")
 
-	// Ожидаем ответ
-	buf := make([]byte, 24)
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-	n, err := conn.Read(buf)
-	if err != nil {
-		fmt.Println("Ошибка чтения ответа:", err)
-		return
+	for _, msg := range messages {
+		packet := makeMessage(1, msg.id, msg.param, msg.data)
+		conn.Write(packet)
+		fmt.Printf("Сообщение ID=%d отправлено\n", msg.id)
 	}
-	fmt.Printf("Получен ответ от клиента (%d байт): %x\n", n, buf[:n])
+
+	// Читаем все ответы (24 байта × 4)
+	for i := 0; i < len(messages); i++ {
+		buf := make([]byte, 24)
+		conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		n, err := conn.Read(buf)
+		if err != nil {
+			fmt.Println("Ошибка чтения ответа:", err)
+			return
+		}
+		fmt.Printf("Ответ от клиента (%d байт): %x\n", n, buf[:n])
+	}
 }
 
 func makeMessage(msgType, id, param uint32, data []byte) []byte {

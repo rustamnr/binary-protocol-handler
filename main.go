@@ -8,6 +8,13 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
+)
+
+const (
+	headerSize    = 24
+	workerCount   = 4
+	taskQueueSize = 32
 )
 
 func main() {
@@ -19,6 +26,12 @@ func main() {
 	fmt.Println("Подключение установлено")
 
 	processor := &DummyProcessor{}
+	taskChan := make(chan MessageTask, taskQueueSize)
+
+	// Запускаем воркеры
+	for i := 0; i < workerCount; i++ {
+		go worker(taskChan, processor)
+	}
 
 	for {
 		fmt.Println("Чтение заголовка...")
@@ -38,40 +51,45 @@ func main() {
 			break
 		}
 
-		response := processor.ProcessMessage(header.Param, data)
+		task := MessageTask{
+			Conn:   conn,
+			Header: *header,
+			Data:   data,
+		}
+		taskChan <- task
+	}
+}
 
-		// Ответ без данных, только заголовок
+// ---------------- Worker-пул ----------------
+
+type MessageTask struct {
+	Conn   net.Conn
+	Header Header
+	Data   []byte
+}
+
+func worker(tasks <-chan MessageTask, processor MessageProcessor) {
+	for task := range tasks {
+		response := processor.ProcessMessage(task.Header.Param, task.Data)
+
 		respHeader := Header{
-			Type:     header.Type,
-			ID:       header.ID,
+			Type:     task.Header.Type,
+			ID:       task.Header.ID,
 			Response: uint32(response),
 			Param:    0,
 			DataLen:  0,
 		}
-		if err := WriteHeader(conn, respHeader); err != nil {
-			log.Printf("Ошибка отправки ответа: %v", err)
-			break
+
+		if err := WriteHeader(task.Conn, respHeader); err != nil {
+			log.Printf("Ошибка отправки ответа ID=%d: %v", task.Header.ID, err)
+			continue
 		}
 
-		fmt.Printf("Обработано сообщение ID=%d, ответ=%d\n", header.ID, response)
+		fmt.Printf("Обработано сообщение ID=%d, ответ=%d\n", task.Header.ID, response)
 	}
 }
 
-type MessageProcessor interface {
-	ProcessMessage(param uint32, data []byte) uint16
-}
-
-type DummyProcessor struct{}
-
-func (p *DummyProcessor) ProcessMessage(param uint32, data []byte) uint16 {
-	var sum uint16
-	for _, b := range data {
-		sum += uint16(b)
-	}
-	return sum
-}
-
-const headerSize = 24
+// ---------------- Протокол ----------------
 
 type Header struct {
 	Type     uint32
@@ -109,19 +127,37 @@ func ReadHeader(r io.Reader) (*Header, error) {
 
 func WriteHeader(w io.Writer, h Header) error {
 	buf := new(bytes.Buffer)
-
 	fields := []uint32{h.Type, h.ID, h.Response, h.Param, h.DataLen}
 	for _, v := range fields {
 		if err := binary.Write(buf, binary.BigEndian, v); err != nil {
 			return err
 		}
 	}
-
 	checksum := crc32.ChecksumIEEE(buf.Bytes())
-	if err := binary.Write(buf, binary.BigEndian, checksum); err != nil {
-		return err
-	}
-
+	binary.Write(buf, binary.BigEndian, checksum)
 	_, err := w.Write(buf.Bytes())
 	return err
+}
+
+// ---------------- Обработчик ----------------
+
+type MessageProcessor interface {
+	ProcessMessage(param uint32, data []byte) uint16
+}
+
+type DummyProcessor struct{}
+
+func (p *DummyProcessor) ProcessMessage(param uint32, data []byte) uint16 {
+	// Эмулируем обработку разной длины
+	if param%2 == 0 {
+		time.Sleep(2 * time.Second)
+	} else {
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	var sum uint16
+	for _, b := range data {
+		sum += uint16(b)
+	}
+	return sum
 }
