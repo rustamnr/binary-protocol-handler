@@ -19,16 +19,16 @@ const (
 func main() {
 	conn, err := net.Dial("tcp", "127.0.0.1:5678")
 	if err != nil {
-		log.Fatalf("Не удалось подключиться: %v", err)
+		log.Fatalf("Error connecting to server: %v", err)
 	}
 	defer conn.Close()
-	fmt.Println("Подключение установлено")
+	fmt.Println("Connected to server")
 
 	processor := &processor.DummyProcessor{}
 	tasks := make(chan worker.MessageTask, taskQueueSize)
 
 	// Запускаем worker-пул
-	for i := 0; i < workerCount; i++ {
+	for range workerCount {
 		go worker.Start(tasks, processor)
 	}
 
@@ -36,16 +36,16 @@ func main() {
 		header, err := protocol.ReadHeader(conn)
 		if err != nil {
 			if err == io.EOF {
-				fmt.Println("Соединение закрыто сервером")
+				fmt.Println("Connection closed by server")
 				break
 			}
-			log.Printf("Ошибка чтения заголовка: %v", err)
+			log.Printf("Error reading header: %v", err)
 			break
 		}
 
 		buf := make([]byte, header.DataLen)
 		if _, err := io.ReadFull(conn, buf); err != nil {
-			log.Printf("Ошибка чтения данных: %v", err)
+			log.Printf("Error reading data: %v", err)
 			break
 		}
 

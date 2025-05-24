@@ -39,6 +39,6 @@ func TestReadHeader_InvalidChecksum(t *testing.T) {
 	buf := bytes.NewBuffer(make([]byte, protocol.HeaderSize))
 	_, err := protocol.ReadHeader(buf)
 	if err == nil {
-		t.Errorf("Ожидалась ошибка контрольной суммы, но её не было")
+		t.Errorf("Expected error for invalid checksum, got nil")
 	}
 }

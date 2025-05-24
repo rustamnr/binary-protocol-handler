@@ -14,12 +14,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Сервер слушает на :5678")
+	fmt.Println("Server started on port 5678")
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			fmt.Println("Ошибка подключения:", err)
+			fmt.Println("Connection error:", err)
 			continue
 		}
 		go handleClient(conn)
@@ -43,7 +43,7 @@ func handleClient(conn net.Conn) {
 	for _, msg := range messages {
 		packet := makeMessage(1, msg.id, msg.param, msg.data)
 		conn.Write(packet)
-		fmt.Printf("Сообщение ID=%d отправлено\n", msg.id)
+		fmt.Printf("Message sent: ID=%d, Param=%d, Data=%s\n", msg.id, msg.param, msg.data)
 	}
 
 	// Читаем все ответы (24 байта × 4)
@@ -52,10 +52,10 @@ func handleClient(conn net.Conn) {
 		conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 		n, err := conn.Read(buf)
 		if err != nil {
-			fmt.Println("Ошибка чтения ответа:", err)
+			fmt.Println("Read error:", err)
 			return
 		}
-		fmt.Printf("Ответ от клиента (%d байт): %x\n", n, buf[:n])
+		fmt.Printf("Received response: %d bytes\n", n)
 	}
 }
 

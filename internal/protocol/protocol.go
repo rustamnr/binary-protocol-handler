@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"log"
 )
 
 const HeaderSize = 24
@@ -25,7 +26,7 @@ func ReadHeader(r io.Reader) (*Header, error) {
 		return nil, err
 	}
 
-	fmt.Printf("RAW HEADER: %x\n", buf)
+	log.Printf("Read header: %x", buf)
 
 	h := &Header{
 		Type:     binary.BigEndian.Uint32(buf[0:4]),
@@ -38,7 +39,7 @@ func ReadHeader(r io.Reader) (*Header, error) {
 
 	expectedChecksum := crc32.ChecksumIEEE(buf[:20])
 	if expectedChecksum != h.Checksum {
-		return nil, fmt.Errorf("ошибка контрольной суммы: expected %08x, got %08x", expectedChecksum, h.Checksum)
+		return nil, fmt.Errorf("checksum error: expected %08x, got %08x", expectedChecksum, h.Checksum)
 	}
 
 	return h, nil

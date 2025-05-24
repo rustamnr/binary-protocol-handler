@@ -29,10 +29,10 @@ func Start(tasks <-chan MessageTask, proc processor.MessageProcessor) {
 		}
 
 		if err := protocol.WriteHeader(task.Conn, respHeader); err != nil {
-			log.Printf("Ошибка отправки ответа ID=%d: %v", task.Header.ID, err)
+			log.Printf("Error writing response header for ID=%d: %v", task.Header.ID, err)
 			continue
 		}
 
-		log.Printf("Обработано сообщение ID=%d, ответ=%d", task.Header.ID, response)
+		log.Printf("Processed message ID=%d, response=%d", task.Header.ID, response)
 	}
 }

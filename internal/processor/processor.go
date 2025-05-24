@@ -26,7 +26,7 @@ func (p *DummyProcessor) ProcessMessage(param uint32, data io.Reader) uint16 {
 			break
 		}
 		if err != nil {
-			log.Printf("Ошибка чтения данных: %v", err)
+			log.Printf("Error reading data: %v", err)
 			break
 		}
 	}

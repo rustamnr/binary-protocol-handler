@@ -1,4 +1,3 @@
-// internal/worker/worker_test.go
 package worker_test
 
 import (
@@ -48,10 +47,10 @@ func TestWorkerProcessMessage(t *testing.T) {
 	// Проверим, что в буфере conn есть записанный заголовок ответа
 	resp, err := protocol.ReadHeader(conn)
 	if err != nil {
-		t.Fatalf("Не удалось прочитать заголовок ответа: %v", err)
+		t.Fatalf("Failed to read response header: %v", err)
 	}
 
 	if resp.ID != 123 || resp.Response != 10 {
-		t.Errorf("Неверный ответ: %+v", resp)
+		t.Errorf("Incorrect response header: got ID=%d, Response=%d; want ID=123, Response=10", resp.ID, resp.Response)
 	}
 }
